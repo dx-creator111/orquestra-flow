@@ -1,0 +1,17 @@
+{
+  "name": "Orquestra Flow",
+  "short_name": "Orquestra",
+  "description": "Automação visual e agentes IA",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#171529",
+  "theme_color": "#9187fc",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
