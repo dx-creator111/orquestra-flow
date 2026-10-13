@@ -13,6 +13,7 @@ import { FlowEditor } from "./FlowEditor";
 import { CRMBoard } from "./CRMBoard";
 import { ChatInbox } from "./ChatInbox";
 import { AgentManager } from "./AgentManager";
+import { DispatchManager, BillingPanel, WebhookPanel, ConnectionPanel, SettingsPanel } from "./OperationalModules";
 
 type RecordRow = Record<string, unknown> & {id: string};
 type NavItem = { slug:string; label:string; icon: typeof Workflow };
@@ -145,6 +146,12 @@ export function OrquestraApp(){
         :section==="crms"?<CRMBoard orgId={org}/>
         :section==="chats"?<ChatInbox orgId={org}/>
         :section==="agents"?<AgentManager orgId={org}/>
+        :section==="dispatches"?<DispatchManager orgId={org}/>
+        :section==="billing"?<BillingPanel orgId={org}/>
+        :section==="webhooks"?<WebhookPanel orgId={org}/>
+        :section==="connections"?<ConnectionPanel orgId={org}/>
+        :section==="facebook"?<ConnectionPanel orgId={org} facebook/>
+        :section==="settings"?<SettingsPanel orgId={org}/>
         :<RecordsSection key={section} orgId={org} section={section}/>}
       </div>
     </main>
