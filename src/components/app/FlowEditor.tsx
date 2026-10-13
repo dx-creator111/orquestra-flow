@@ -200,7 +200,7 @@ function Canvas({flowId,orgId,session}:{flowId:string;orgId:string;session:Sessi
     if(!validate()){window.alert("Corrija os erros de validação antes de publicar.");return;}
     if(!await persist(nodes,edges))return;
     // Atomically persist immutable version and update published pointer.
-    const {error}=await supabase.rpc("publish_flow", {_flow:flowId,_notes:null});
+    const {error}=await supabase.rpc("publish_flow", {_flow:flowId});
     if(error){window.alert(error.message);return;}
     setSaved("Versão publicada");
     await loadVersions();
