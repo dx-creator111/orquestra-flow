@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { runGraph, type RunnerContext, type RunnerStep } from "./runner";
+import { runGraph, interpolate, type RunnerContext, type RunnerStep } from "./runner";
 import { graphSchema, type GraphNode, type GraphEdge } from "./blocks";
 
 const requestSchema = z.object({
@@ -70,8 +70,63 @@ export const executeFlowServer = createServerFn({ method: "POST" })
         variables:{},messages:[],tags:[],
       };
     }
-    const state=runGraph({...graph,context,currentNodeId:startFrom,
+    let state=runGraph({...graph,context,currentNodeId:startFrom,
       priorSteps,resume:data.executionId?{response:data.response,advanceTime:data.advanceTime}:undefined});
+    let aiCalls=0;
+    while(state.status==="paused" && state.waiting?.kind==="integration" && aiCalls<5){
+      aiCalls++;
+      const aiNode=graph.nodes.find(n=>n.id===state.waiting?.nodeId);
+      if(!aiNode){state={...state,status:"failed",waiting:null,currentNodeId:null,error:"Bloco IA inexistente"};break;}
+      const cfg=aiNode.data.config;
+      let provider=String(cfg.provider??"openai"),model=String(cfg.model??"gpt-5-mini");
+      let systemPrompt=String(cfg.system_prompt??""),userMessage=interpolate(cfg.user_message,state.context);
+      let outputVariable=String(cfg.output_variable??"ai_response");
+      let reason="";
+      if(aiNode.data.kind==="ai_agent"){
+        const agentId=String(cfg.agent_id??"");
+        const {data:agent,error:agentError}=await db.from("agents").select("provider,model,system_prompt,active")
+          .eq("id",agentId).eq("organization_id",flow.organization_id).single();
+        if(agentError||!agent)reason="Agente não encontrado ou sem acesso";
+        else if(!agent.active)reason="Agente desativado";
+        else {provider=agent.provider;model=agent.model;systemPrompt=agent.system_prompt;}
+      }
+      let resultText="";
+      if(!reason){
+        if(provider!=="openai")reason="Provedor "+provider+" ainda não está integrado";
+        else if(!process.env.OPENAI_API_KEY)reason="OPENAI_API_KEY não configurada no servidor";
+        else if(!/^[a-zA-Z0-9._-]{2,80}$/.test(model))reason="Identificador de modelo inválido";
+        else try {
+          const response=await fetch("https://api.openai.com/v1/responses",{
+            method:"POST",
+            headers:{"Authorization":"Bearer "+process.env.OPENAI_API_KEY,"Content-Type":"application/json"},
+            body:JSON.stringify({
+              model,max_output_tokens:350,
+              input:[{role:"system",content:systemPrompt.slice(0,8000)},
+                {role:"user",content:userMessage.slice(0,12000)}]
+            }),
+            signal:AbortSignal.timeout(30000),
+          });
+          const payload=await response.json() as {
+            error?:{message?:string};
+            output_text?:string;
+            output?:{content?:{type?:string;text?:string}[]}[];
+          };
+          if(!response.ok)throw new Error(payload.error?.message??"Resposta HTTP "+response.status);
+          resultText=payload.output_text??payload.output?.flatMap(x=>x.content??[])
+            .filter(x=>x.type==="output_text").map(x=>x.text??"").join("\n")??"";
+          if(!resultText.trim())throw new Error("O provedor retornou uma resposta vazia");
+        }catch(e){reason=e instanceof Error?e.message:"Erro na chamada de IA";}
+      }
+      // The output variable belongs to the authorized flow, not to client-supplied state.
+      if(outputVariable!=="ai_response") {
+        graph.nodes=graph.nodes.map(n=>n.id===aiNode.id?{...n,data:{...n.data,config:{...n.data.config,output_variable:outputVariable}}}:n);
+      }
+      state=runGraph({...graph,context:state.context,currentNodeId:aiNode.id,priorSteps:state.steps,
+        resume:reason?{externalError:reason}:{externalResult:resultText}});
+    }
+    if(state.status==="paused"&&state.waiting?.kind==="integration"){
+      state={...state,status:"failed",waiting:null,currentNodeId:null,error:"Limite de cinco chamadas de IA por execução"};
+    }
     if(!executionId){
       const {data:created,error}=await db.from("flow_executions").insert({
         organization_id:flow.organization_id,flow_id:flow.id,mode:"test",

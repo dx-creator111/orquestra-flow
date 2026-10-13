@@ -31,6 +31,9 @@ describe("server flow simulation", () => {
   it("never claims external AI execution without an integration",()=>{
     const input: RunnerInput={nodes:[node("a","start"),node("b","ai")],
       edges:[{id:"1",source:"a",target:"b"}]};
-    expect(runGraph(input).status).toBe("failed");
+    const state=runGraph(input);
+    expect(state.status).toBe("paused");
+    expect(state.waiting?.kind).toBe("integration");
+    expect(state.context.messages).toEqual([]);
   });
 });

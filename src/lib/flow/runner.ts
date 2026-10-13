@@ -19,7 +19,7 @@ export type RunnerStep = {
   message: string | null;
   error: string | null;
 };
-export type Waiting = { kind: "reply" | "menu" | "time"; nodeId: string; variable?: string; options?: string[] | undefined };
+export type Waiting = { kind: "reply" | "menu" | "time" | "integration"; nodeId: string; variable?: string; options?: string[] | undefined };
 export type RunnerState = {
   status: RunnerStatus;
   currentNodeId: string | null;
@@ -34,7 +34,7 @@ export interface RunnerInput {
   context?: Partial<RunnerContext>;
   currentNodeId?: string | null | undefined;
   priorSteps?: RunnerStep[];
-  resume?: { response?: string | undefined; advanceTime?: boolean | undefined } | undefined;
+  resume?: { response?: string | undefined; advanceTime?: boolean | undefined; externalResult?: string | undefined; externalError?: string | undefined } | undefined;
   maxSteps?: number;
 }
 
@@ -155,6 +155,23 @@ export function runGraph(input: RunnerInput): RunnerState {
       case "end":
         cursor = null;
         break;
+      case "ai":
+      case "ai_agent": {
+        if(resumed && input.resume?.externalResult !== undefined){
+          resumed=false;
+          ctx.variables[value(config.output_variable)||"ai_response"] = input.resume.externalResult;
+          port="success";
+        } else if(resumed && input.resume?.externalError){
+          resumed=false;port="error";
+          ctx.variables.ai_error=input.resume.externalError;
+          if(!outgoing(node.id,"error")) {
+            stepStatus="failed";stepError=input.resume.externalError;
+          }
+        } else {
+          stepStatus="paused";pause={kind:"integration",nodeId:node.id};
+        }
+        break;
+      }
       default:
         stepStatus = "failed";
         stepError = "Bloco " + kind + " exige integração/configuração no servidor; nenhuma ação externa foi simulada.";

@@ -195,7 +195,7 @@ const defs: BlockDef[] = [
     kind: "ai", label: "IA (prompt)", group: "IA",
     description: "Gera resposta com modelo de IA no servidor",
     fields: [
-      { name: "provider", label: "Provedor", type: "select", options: opt(["lovable", "IA integrada (Lovable AI)"], ["openai", "OpenAI (chave própria)"]) },
+      { name: "provider", label: "Provedor", type: "select", options: opt(["openai", "OpenAI (chave no servidor)"]) },
       { name: "model", label: "Modelo", type: "text", placeholder: "google/gemini-3-flash-preview" },
       { name: "system_prompt", label: "Instruções de sistema", type: "textarea" },
       { name: "user_message", label: "Mensagem do usuário", type: "textarea", placeholder: "{last_message}" },
@@ -206,7 +206,7 @@ const defs: BlockDef[] = [
       system_prompt: z.string().max(8000), user_message: z.string().min(1, "Obrigatório"),
       output_variable: z.string().regex(/^[a-zA-Z_]\w*$/, "Nome de variável inválido"),
     }),
-    defaults: () => ({ provider: "lovable", model: "google/gemini-3-flash-preview", system_prompt: "Você é um atendente cordial.", user_message: "{last_message}", output_variable: "resposta_ia" }),
+    defaults: () => ({ provider: "openai", model: "gpt-5-mini", system_prompt: "Você é um atendente cordial.", user_message: "{last_message}", output_variable: "resposta_ia" }),
     outputs: () => SUCCESS_ERR, requiredOutputs: ["success"],
     summary: (c) => `${s(c.model)} → {${s(c.output_variable)}}`,
   },
