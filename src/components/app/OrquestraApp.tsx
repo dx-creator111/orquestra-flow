@@ -94,7 +94,7 @@ export function OrquestraApp(){
         if(alive)setSession(s);
       });
       return()=>{alive=false;subscription.unsubscribe();};
-    }catch(e){setAuthError(e instanceof Error?e.message:asText(e));setReady(true);}
+    }catch(e){setAuthError(e instanceof Error?e.message:asText(e));setReady(true);return ()=>{alive=false;};}
   },[]);
   useEffect(()=>{
     if(!session){setOrg(null);return ()=>{};}
