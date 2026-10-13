@@ -70,6 +70,21 @@ export const executeFlowServer = createServerFn({ method: "POST" })
         variables:{},messages:[],tags:[],
       };
     }
+    // Reserve the execution before making any paid external AI call.
+    // Unique idempotency keys prevent duplicate starts; compare-and-swap locks resumes.
+    if(!executionId){
+      const {data:created,error}=await db.from("flow_executions").insert({
+        organization_id:flow.organization_id,flow_id:flow.id,mode:"test",
+        status:"running",graph,context,idempotency_key:data.idempotencyKey??crypto.randomUUID()
+      }).select("id").single();
+      if(error||!created)throw new Error(error?.message??"Falha ao reservar execução");
+      executionId=created.id;
+    }else{
+      const {data:locked,error:lockError}=await db.from("flow_executions")
+        .update({status:"running"}).eq("id",executionId).eq("flow_id",flow.id)
+        .eq("status","paused").eq("step_count",oldStepCount).select("id");
+      if(lockError||!locked?.length)throw new Error("A execução está sendo retomada em outra sessão");
+    }
     let state=runGraph({...graph,context,currentNodeId:startFrom,
       priorSteps,resume:data.executionId?{response:data.response,advanceTime:data.advanceTime}:undefined});
     let aiCalls=0;
@@ -127,20 +142,12 @@ export const executeFlowServer = createServerFn({ method: "POST" })
     if(state.status==="paused"&&state.waiting?.kind==="integration"){
       state={...state,status:"failed",waiting:null,currentNodeId:null,error:"Limite de cinco chamadas de IA por execução"};
     }
-    if(!executionId){
-      const {data:created,error}=await db.from("flow_executions").insert({
-        organization_id:flow.organization_id,flow_id:flow.id,mode:"test",
-        status:"running",graph,context,idempotency_key:data.idempotencyKey??crypto.randomUUID()
-      }).select("id").single();
-      if(error||!created)throw new Error(error?.message??"Falha ao criar execução");
-      executionId=created.id;
-    }
     let updateQuery = db.from("flow_executions").update({
       status:state.status,current_node_id:state.currentNodeId,
       waiting:state.waiting,context:state.context,step_count:state.steps.length,
       error:state.error,finished_at:state.status==="paused"?null:new Date().toISOString()
     }).eq("id",executionId).eq("flow_id",flow.id);
-    if(data.executionId) updateQuery=updateQuery.eq("status","paused").eq("step_count",oldStepCount);
+    if(data.executionId) updateQuery=updateQuery.eq("status","running").eq("step_count",oldStepCount);
     const {data:updated,error:updateError}=await updateQuery.select("id");
     if(updateError||!updated?.length)throw new Error(updateError?.message??"Execução alterada por outra operação. Recarregue.");
     const freshSteps=state.steps.slice(priorSteps.length);
