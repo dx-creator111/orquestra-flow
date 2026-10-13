@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { FlowEditor } from "./FlowEditor";
 import { CRMBoard } from "./CRMBoard";
 import { ChatInbox } from "./ChatInbox";
+import { AgentManager } from "./AgentManager";
 
 type RecordRow = Record<string, unknown> & {id: string};
 type NavItem = { slug:string; label:string; icon: typeof Workflow };
@@ -143,6 +144,7 @@ export function OrquestraApp(){
         :section==="flows"?<Flows orgId={org}/>
         :section==="crms"?<CRMBoard orgId={org}/>
         :section==="chats"?<ChatInbox orgId={org}/>
+        :section==="agents"?<AgentManager orgId={org}/>
         :<RecordsSection key={section} orgId={org} section={section}/>}
       </div>
     </main>

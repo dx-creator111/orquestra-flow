@@ -43,7 +43,11 @@ function FlowNodeComponent({data,selected}:NodeProps<CanvasNode>){
 }
 const nodeTypes={flowNode:FlowNodeComponent};
 
-function FieldEditor({field,value,onChange}:{field:typeof BLOCK_LIST[number]["fields"][number];value:unknown;onChange:(v:unknown)=>void}){
+function FieldEditor({field,value,onChange,agents}:{field:typeof BLOCK_LIST[number]["fields"][number];value:unknown;onChange:(v:unknown)=>void;agents:{id:string;name:string}[]}){
+  if(field.type==="agent")return <label className="block space-y-2 text-xs text-muted-foreground">{field.label}
+    <select className={cls+" w-full text-foreground"} value={readString(value)} onChange={e=>onChange(e.target.value)}>
+      <option value="">Selecione um agente</option>{agents.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+    </select><a className="block text-primary" href="/agents">Gerenciar agentes de IA</a></label>;
   if(field.type==="switch")return <label className="flex items-center justify-between gap-3 text-sm">{field.label}
     <input type="checkbox" checked={Boolean(value)} onChange={e=>onChange(e.target.checked)}/></label>;
   if(field.type==="select")return <label className="block space-y-2 text-xs text-muted-foreground">{field.label}
@@ -93,6 +97,8 @@ function Canvas({flowId,orgId,session}:{flowId:string;orgId:string;session:Sessi
   const [issues,setIssues]=useState<Issue[]>([]);
   const [tab,setTab]=useState<"properties"|"history">("properties");
   const [versions,setVersions]=useState<{id:string;version:number;created_at:string}[]>([]);
+  const [agentOptions,setAgentOptions]=useState<{id:string;name:string}[]>([]);
+  useEffect(()=>{void supabase.from("agents").select("id,name").eq("organization_id",orgId).then(({data})=>setAgentOptions(data??[]));},[orgId]);
   const [testOpen,setTestOpen]=useState(false);
   const [testName,setTestName]=useState("Maria Silva"),[testPhone,setTestPhone]=useState("+5511999999999");
   const [testMessage,setTestMessage]=useState("Olá"),[testReply,setTestReply]=useState("");
@@ -303,7 +309,7 @@ function Canvas({flowId,orgId,session}:{flowId:string;orgId:string;session:Sessi
         :selectedNode&&selectedDef?<div className="space-y-5 p-5">
           <div><p className="text-[11px] font-medium uppercase tracking-wider text-primary">{selectedDef.group}</p>
             <h3 className="mt-1 text-lg font-bold">{selectedDef.label}</h3><p className="mt-1 text-xs text-muted-foreground">{selectedDef.description}</p></div>
-          {selectedDef.fields.map(f=><FieldEditor key={f.name} field={f} value={selectedNode.data.config[f.name]} onChange={v=>updateConfig(f.name,v)}/>)}
+          {selectedDef.fields.map(f=><FieldEditor key={f.name} field={f} agents={agentOptions} value={selectedNode.data.config[f.name]} onChange={v=>updateConfig(f.name,v)}/>)}
           <div className="flex gap-2 border-t border-border pt-4">
             <button className="of-ghost flex gap-1" onClick={duplicateSelected}><Copy size={15}/> Duplicar</button>
             <button className="of-ghost flex gap-1 text-destructive" onClick={deleteSelected}><Trash2 size={15}/> Excluir</button>
