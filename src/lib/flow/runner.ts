@@ -19,7 +19,7 @@ export type RunnerStep = {
   message: string | null;
   error: string | null;
 };
-export type Waiting = { kind: "reply" | "menu" | "time"; nodeId: string; variable?: string; options?: string[] };
+export type Waiting = { kind: "reply" | "menu" | "time"; nodeId: string; variable?: string; options?: string[] | undefined };
 export type RunnerState = {
   status: RunnerStatus;
   currentNodeId: string | null;
@@ -32,9 +32,9 @@ export interface RunnerInput {
   nodes: GraphNode[];
   edges: GraphEdge[];
   context?: Partial<RunnerContext>;
-  currentNodeId?: string | null;
+  currentNodeId?: string | null | undefined;
   priorSteps?: RunnerStep[];
-  resume?: { response?: string; advanceTime?: boolean };
+  resume?: { response?: string | undefined; advanceTime?: boolean | undefined } | undefined;
   maxSteps?: number;
 }
 

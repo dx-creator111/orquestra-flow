@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import type { Session } from "@supabase/supabase-js";
+import type { LucideIcon } from "lucide-react";
+import type { Json } from "@/integrations/supabase/types";
 import {
   Activity, Bot, CreditCard, Database, GitBranch, LayoutDashboard, LogOut,
   Megaphone, MessageCircle, Plus, RadioTower, Settings2, Shield, Users, Workflow,
@@ -95,7 +97,7 @@ export function OrquestraApp(){
     }catch(e){setAuthError(e instanceof Error?e.message:asText(e));setReady(true);}
   },[]);
   useEffect(()=>{
-    if(!session){setOrg(null);return;}
+    if(!session){setOrg(null);return ()=>{};}
     let cancelled=false;
     supabase.from("profiles").select("current_organization_id").eq("id",session.user.id).single()
       .then(({data})=>{if(!cancelled)setOrg(data?.current_organization_id??null);});
@@ -107,9 +109,9 @@ export function OrquestraApp(){
   if(!session)return <Login onSession={setSession}/>;
   const editorMatch=path.match(/^\/flows\/([0-9a-f-]{36})\/editor\/?$/);
   const executionsMatch=path.match(/^\/flows\/([0-9a-f-]{36})\/executions\/?$/);
-  if(editorMatch&&org)return <FlowEditor flowId={editorMatch[1]} orgId={org} session={session}/>;
+  if(editorMatch&&org)return <FlowEditor flowId={editorMatch[1]!} orgId={org} session={session}/>;
   const section=path.split("/")[1]||"dashboard";
-  const current=nav.find(n=>n.slug===section)??nav[0];
+  const current=nav.find(n=>n.slug===section)??nav[0]!;
   return <div className="flex min-h-screen bg-background">
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-sidebar md:flex">
       <div className="flex h-20 items-center gap-3 border-b border-border px-6">
@@ -134,7 +136,7 @@ export function OrquestraApp(){
       <div className="flex gap-2 overflow-x-auto border-b border-border p-2 md:hidden">{nav.map(n=><a href={"/"+n.slug} key={n.slug} className="shrink-0 rounded-md bg-card px-3 py-1 text-xs">{n.label}</a>)}</div>
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
         {!org?<div className="of-panel p-6">Preparando organização. Se a conta é nova, verifique se seu cadastro foi confirmado e atualize a página.</div>
-        :executionsMatch?<ExecutionHistory flowId={executionsMatch[1]} orgId={org}/>
+        :executionsMatch?<ExecutionHistory flowId={executionsMatch[1]!} orgId={org}/>
         :section==="dashboard"?<Dashboard orgId={org}/>
         :section==="flows"?<Flows orgId={org}/>
         :<RecordsSection key={section} orgId={org} section={section}/>}
@@ -171,9 +173,11 @@ function Dashboard({orgId}:{orgId:string}){
     return [table,r.count??0] as const;
   })).then(data=>{if(active)setCounts(Object.fromEntries(data));});return()=>{active=false;};},[orgId]);
   return <><Heading title="Painel de controle" desc="Visão geral com dados reais da sua organização."/>
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[
-      ["Fluxos",counts.flows,Workflow],["Clientes",counts.contacts,Users],["Agentes",counts.agents,Bot],["Execuções",counts.flow_executions,Activity]
-    ].map(([title,count,Icon])=><div className="of-panel p-6" key={title as string}><div className="mb-4 flex items-center justify-between text-muted-foreground"><span className="text-sm">{title as string}</span><Icon size={20}/></div><div className="text-3xl font-bold tabular-nums">{count===undefined?"—":count as number}</div></div>)}</div>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{([
+      {title:"Fluxos",count:counts.flows,Icon:Workflow},{title:"Clientes",count:counts.contacts,Icon:Users},
+      {title:"Agentes",count:counts.agents,Icon:Bot},{title:"Execuções",count:counts.flow_executions,Icon:Activity}
+    ] as {title:string;count:number|undefined;Icon:LucideIcon}[]).map(({title,count,Icon})=>
+      <div className="of-panel p-6" key={title}><div className="mb-4 flex items-center justify-between text-muted-foreground"><span className="text-sm">{title}</span><Icon size={20}/></div><div className="text-3xl font-bold tabular-nums">{count===undefined?"—":count}</div></div>)}</div>
     <div className="of-panel mt-6 p-8"><div className="flex items-center gap-4"><Workflow size={32} className="text-primary"/><div><h2 className="text-lg font-semibold">Comece com um fluxo visual</h2><p className="text-sm text-muted-foreground">Arraste blocos, conecte saídas e teste antes de publicar.</p></div></div>
       <a className="of-primary mt-5 inline-flex gap-2" href="/flows">Abrir fluxos <ArrowRight size={17}/></a></div>
   </>;
@@ -194,7 +198,7 @@ function Flows({orgId}:{orgId:string}){
     let result;
     if(task==="archive")result=await supabase.from("flows").update({status:"archived"}).eq("id",row.id).eq("organization_id",orgId);
     else if(task==="delete")result=await supabase.from("flows").delete().eq("id",row.id).eq("organization_id",orgId);
-    else result=await supabase.from("flows").insert({organization_id:orgId,name:asText(row.name)+" (cópia)",draft_nodes:row.draft_nodes,draft_edges:row.draft_edges,node_count:row.node_count});
+    else result=await supabase.from("flows").insert({organization_id:orgId,name:asText(row.name)+" (cópia)",draft_nodes:row.draft_nodes as Json,draft_edges:row.draft_edges as Json,node_count:Number(row.node_count??0)});
     if(result.error)window.alert(result.error.message);
     await reload();
   }
@@ -232,7 +236,7 @@ function ExecutionHistory({flowId,orgId}:{flowId:string;orgId:string}){
       <div className="mt-1 text-xs text-muted-foreground">{asText(r.step_count)} etapas</div></button>):<p className="p-6 text-sm text-muted-foreground">Nenhuma execução registrada.</p>}</div>
     <div className="of-panel p-4"><h2 className="mb-3 font-semibold">Etapas</h2>{selected?steps.map(s=><div key={s.id} className="border-b border-border py-3 text-sm">
       <div><span className="text-muted-foreground">#{asText(s.seq)}</span> {asText(s.node_kind)} · {asText(s.status)}</div>
-      {s.message&&<p className="mt-1 text-xs">{asText(s.message)}</p>}{s.error&&<p className="mt-1 text-xs text-destructive">{asText(s.error)}</p>}
+      {Boolean(s.message)&&<p className="mt-1 text-xs">{asText(s.message)}</p>}{Boolean(s.error)&&<p className="mt-1 text-xs text-destructive">{asText(s.error)}</p>}
       </div>):<p className="text-sm text-muted-foreground">Selecione uma execução.</p>}</div></div>
   </>;
 }

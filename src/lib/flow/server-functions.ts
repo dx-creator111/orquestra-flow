@@ -48,7 +48,7 @@ export const executeFlowServer = createServerFn({ method: "POST" })
       if(waiting?.kind==="time"&&!data.advanceTime)throw new Error("Use Avançar tempo para continuar");
       if(waiting?.kind!=="time"&&data.response===undefined&&!data.advanceTime)
         throw new Error("Digite uma resposta ou avance o tempo");
-      graph = graphSchema.parse(prior.graph);
+      graph = graphSchema.parse(prior.graph) as unknown as {nodes:GraphNode[];edges:GraphEdge[]};
       context = (prior.context ?? {}) as Partial<RunnerContext>;
       startFrom = prior.current_node_id;
       const {data: steps,error: stepsError}=await db.from("execution_steps").select("*")
@@ -62,7 +62,7 @@ export const executeFlowServer = createServerFn({ method: "POST" })
     }else{
       graph = graphSchema.parse({
         nodes:flow.draft_nodes,edges:flow.draft_edges
-      });
+      }) as unknown as {nodes:GraphNode[];edges:GraphEdge[]};
       const clean = data.name.trim();
       context = {
         full_name:clean,first_name:clean.split(/\s+/)[0]??"",

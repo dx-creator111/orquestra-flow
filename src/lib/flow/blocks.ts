@@ -146,7 +146,7 @@ const defs: BlockDef[] = [
     summary: (c) => {
       const r = (c.rules as { left: string; operator: string; right: string }[] | undefined) ?? [];
       if (!r.length) return "Sem regras";
-      const f = r[0];
+      const f = r[0]!;
       return `${f.left} ${OPS[f.operator] ?? f.operator} ${f.right}${r.length > 1 ? ` +${r.length - 1}` : ""}`;
     },
   },

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
+import type { Json } from "@/integrations/supabase/types";
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Position,
   useNodesState, useEdgesState, useReactFlow, addEdge,
@@ -133,7 +134,7 @@ function Canvas({flowId,orgId,session}:{flowId:string;orgId:string;session:Sessi
     setSaved("Salvando...");
     const cleanNodes=ns.map(n=>({id:n.id,type:"flowNode",position:n.position,data:{kind:n.data.kind,config:n.data.config,label:n.data.label}}));
     const cleanEdges=es.map(e=>({id:e.id,source:e.source,target:e.target,sourceHandle:e.sourceHandle??null}));
-    const result=await supabase.from("flows").update({draft_nodes:cleanNodes,draft_edges:cleanEdges,
+    const result=await supabase.from("flows").update({draft_nodes:cleanNodes as unknown as Json,draft_edges:cleanEdges as unknown as Json,
       node_count:ns.length,has_unpublished_changes:true}).eq("id",flowId).eq("organization_id",orgId);
     setSaved(result.error?"Erro: "+result.error.message:"Salvo");
     return !result.error;
@@ -202,8 +203,8 @@ function Canvas({flowId,orgId,session}:{flowId:string;orgId:string;session:Sessi
     const version=(latest?.[0]?.version??0)+1;
     const {data:created,error}=await supabase.from("flow_versions").insert({
       organization_id:orgId,flow_id:flowId,version,
-      nodes:nodes.map(n=>({id:n.id,type:"flowNode",position:n.position,data:n.data})),
-      edges:edges.map(e=>({id:e.id,source:e.source,target:e.target,sourceHandle:e.sourceHandle??null})),
+      nodes:nodes.map(n=>({id:n.id,type:"flowNode",position:n.position,data:n.data})) as unknown as Json,
+      edges:edges.map(e=>({id:e.id,source:e.source,target:e.target,sourceHandle:e.sourceHandle??null})) as unknown as Json,
     }).select("id").single();
     if(error||!created){window.alert(error?.message??"Falha ao publicar");return;}
     const result=await supabase.from("flows").update({status:"published",published_version_id:created.id,has_unpublished_changes:false})
@@ -230,7 +231,7 @@ function Canvas({flowId,orgId,session}:{flowId:string;orgId:string;session:Sessi
   async function importJson(e:ChangeEvent<HTMLInputElement>){
     const file=e.target.files?.[0];if(!file)return;
     try{const graph=graphSchema.parse(JSON.parse(await file.text()));checkpoint();
-      setNodes(graph.nodes.map(n=>({...n,type:"flowNode"})));setEdges(graph.edges.map(e=>({...e,id:e.id,sourceHandle:e.sourceHandle??null})));
+      setNodes(graph.nodes.map(n=>({...n,type:"flowNode"})) as CanvasNode[]);setEdges(graph.edges.map(e=>({...e,id:e.id,sourceHandle:e.sourceHandle??null})));
       setSelected(null);setIssues([]);
     }catch(err){window.alert("JSON inválido: "+(err instanceof Error?err.message:"estrutura inválida"));}
     e.target.value="";
