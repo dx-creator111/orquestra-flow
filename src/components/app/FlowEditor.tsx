@@ -134,8 +134,9 @@ function Canvas({flowId,orgId,session}:{flowId:string;orgId:string;session:Sessi
     setSaved("Salvando...");
     const cleanNodes=ns.map(n=>({id:n.id,type:"flowNode",position:n.position,data:{kind:n.data.kind,config:n.data.config,label:n.data.label}}));
     const cleanEdges=es.map(e=>({id:e.id,source:e.source,target:e.target,sourceHandle:e.sourceHandle??null}));
-    const result=await supabase.from("flows").update({draft_nodes:cleanNodes as unknown as Json,draft_edges:cleanEdges as unknown as Json,
-      node_count:ns.length,has_unpublished_changes:true}).eq("id",flowId).eq("organization_id",orgId);
+    const result=await supabase.rpc("save_flow_draft", {
+      _flow:flowId,_nodes:cleanNodes as unknown as Json,_edges:cleanEdges as unknown as Json
+    });
     setSaved(result.error?"Erro: "+result.error.message:"Salvo");
     return !result.error;
   };
@@ -198,19 +199,10 @@ function Canvas({flowId,orgId,session}:{flowId:string;orgId:string;session:Sessi
   async function publish(){
     if(!validate()){window.alert("Corrija os erros de validação antes de publicar.");return;}
     if(!await persist(nodes,edges))return;
-    const {data:latest}=await supabase.from("flow_versions").select("version").eq("flow_id",flowId)
-      .order("version",{ascending:false}).limit(1);
-    const version=(latest?.[0]?.version??0)+1;
-    const {data:created,error}=await supabase.from("flow_versions").insert({
-      organization_id:orgId,flow_id:flowId,version,
-      nodes:nodes.map(n=>({id:n.id,type:"flowNode",position:n.position,data:n.data})) as unknown as Json,
-      edges:edges.map(e=>({id:e.id,source:e.source,target:e.target,sourceHandle:e.sourceHandle??null})) as unknown as Json,
-    }).select("id").single();
-    if(error||!created){window.alert(error?.message??"Falha ao publicar");return;}
-    const result=await supabase.from("flows").update({status:"published",published_version_id:created.id,has_unpublished_changes:false})
-      .eq("id",flowId).eq("organization_id",orgId);
-    if(result.error){window.alert(result.error.message);return;}
-    setSaved("Versão "+version+" publicada");
+    // Atomically persist immutable version and update published pointer.
+    const {error}=await supabase.rpc("publish_flow", {_flow:flowId,_notes:null});
+    if(error){window.alert(error.message);return;}
+    setSaved("Versão publicada");
     await loadVersions();
   }
   async function restore(versionId:string){
