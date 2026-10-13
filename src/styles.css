@@ -156,3 +156,50 @@
 }
 .react-flow__handle { width: 11px; height: 11px; border-width: 2px; }
 .react-flow__attribution { display: none; }
+
+/* Orquestra Flow application primitives */
+.of-panel {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 0.9rem;
+}
+.of-input {
+  width: 100%;
+  min-height: 2.5rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  padding: 0.6rem 0.8rem;
+  color: var(--foreground);
+  outline: none;
+}
+.of-input:focus { border-color: var(--primary); }
+.of-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  padding: 0.62rem 0.9rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: opacity 120ms ease;
+}
+.of-primary:hover { opacity: 0.85; }
+.of-primary:disabled { cursor: not-allowed; opacity: 0.45; }
+.of-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
+  font-size: 0.8rem;
+  transition: background 120ms ease;
+}
+.of-ghost:hover { background: var(--accent); }
+.of-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
